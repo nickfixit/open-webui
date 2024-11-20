@@ -16,6 +16,12 @@ ARG USE_RERANKING_MODEL=""
 ARG USE_TIKTOKEN_ENCODING_NAME="cl100k_base"
 
 ARG BUILD_HASH=dev-build
+
+# This should allow you to use environment variables
+# Ghetto S6-Overlay for now
+ENV PUID=${PUID}
+ENV PGID=${PGID}
+
 # Override at your own risk - non-root configurations are untested
 ARG UID=0
 ARG GID=0
