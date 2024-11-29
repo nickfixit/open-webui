@@ -75,14 +75,6 @@
 		(model) => $models.find((m) => m.id === model)?.info?.meta?.capabilities?.vision ?? true
 	);
 
-	$: if (prompt) {
-		if (chatInputContainerElement) {
-			chatInputContainerElement.style.height = '';
-			chatInputContainerElement.style.height =
-				Math.min(chatInputContainerElement.scrollHeight, 200) + 'px';
-		}
-	}
-
 	const scrollToBottom = () => {
 		const element = document.getElementById('messages-container');
 		element.scrollTo({
@@ -321,12 +313,22 @@
 												<span class="relative inline-flex rounded-full size-2 bg-yellow-500" />
 											</span>
 										</div>
-										<div class=" translate-y-[0.5px] line-clamp-1">
-											{selectedToolIds
-												.map((id) => {
-													return $tools ? $tools.find((tool) => tool.id === id)?.name : id;
-												})
-												.join(', ')}
+										<div class=" translate-y-[0.5px] text-ellipsis line-clamp-1 flex">
+											{#each selectedToolIds.map((id) => {
+												return $tools ? $tools.find((t) => t.id === id) : { id: id, name: id };
+											}) as tool, toolIdx (toolIdx)}
+												<Tooltip
+													content={tool?.meta?.description ?? ''}
+													className=" {toolIdx !== 0 ? 'pl-0.5' : ''} flex-shrink-0"
+													placement="top"
+												>
+													{tool.name}
+												</Tooltip>
+
+												{#if toolIdx !== selectedToolIds.length - 1}
+													<span>, </span>
+												{/if}
+											{/each}
 										</div>
 									</div>
 								</div>
@@ -575,53 +577,23 @@
 
 									{#if $settings?.richTextInput ?? true}
 										<div
-											bind:this={chatInputContainerElement}
-											id="chat-input-container"
-											class="scrollbar-hidden text-left bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-2.5 px-1 rounded-xl resize-none h-[48px] overflow-auto"
+											class="scrollbar-hidden text-left bg-gray-50 dark:bg-gray-850 dark:text-gray-100 outline-none w-full py-2.5 px-1 rounded-xl resize-none h-fit max-h-60 overflow-auto"
 										>
 											<RichTextInput
 												bind:this={chatInputElement}
 												id="chat-input"
-												trim={true}
-												placeholder={placeholder ? placeholder : $i18n.t('Send a Message')}
-												largeTextAsFile={$settings?.largeTextAsFile ?? false}
-												bind:value={prompt}
+												messageInput={true}
 												shiftEnter={!$mobile ||
 													!(
 														'ontouchstart' in window ||
 														navigator.maxTouchPoints > 0 ||
 														navigator.msMaxTouchPoints > 0
 													)}
-												on:enter={async (e) => {
-													if (prompt !== '') {
-														dispatch('submit', prompt);
-													}
-												}}
-												on:input={async (e) => {
-													if (chatInputContainerElement) {
-														chatInputContainerElement.style.height = '';
-														chatInputContainerElement.style.height =
-															Math.min(chatInputContainerElement.scrollHeight, 200) + 'px';
-													}
-												}}
-												on:focus={async (e) => {
-													if (chatInputContainerElement) {
-														chatInputContainerElement.style.height = '';
-														chatInputContainerElement.style.height =
-															Math.min(chatInputContainerElement.scrollHeight, 200) + 'px';
-													}
-												}}
-												on:keypress={(e) => {
-													e = e.detail.event;
-												}}
+												placeholder={placeholder ? placeholder : $i18n.t('Send a Message')}
+												largeTextAsFile={$settings?.largeTextAsFile ?? false}
+												bind:value={prompt}
 												on:keydown={async (e) => {
 													e = e.detail.event;
-
-													if (chatInputContainerElement) {
-														chatInputContainerElement.style.height = '';
-														chatInputContainerElement.style.height =
-															Math.min(chatInputContainerElement.scrollHeight, 200) + 'px';
-													}
 
 													const isCtrlPressed = e.ctrlKey || e.metaKey; // metaKey is for Cmd key on Mac
 													const commandsContainerElement =
@@ -662,50 +634,70 @@
 														editButton?.click();
 													}
 
-													if (commandsContainerElement && e.key === 'ArrowUp') {
-														e.preventDefault();
-														commandsElement.selectUp();
+													if (commandsContainerElement) {
+														if (commandsContainerElement && e.key === 'ArrowUp') {
+															e.preventDefault();
+															commandsElement.selectUp();
 
-														const commandOptionButton = [
-															...document.getElementsByClassName('selected-command-option-button')
-														]?.at(-1);
-														commandOptionButton.scrollIntoView({ block: 'center' });
-													}
-
-													if (commandsContainerElement && e.key === 'ArrowDown') {
-														e.preventDefault();
-														commandsElement.selectDown();
-
-														const commandOptionButton = [
-															...document.getElementsByClassName('selected-command-option-button')
-														]?.at(-1);
-														commandOptionButton.scrollIntoView({ block: 'center' });
-													}
-
-													if (commandsContainerElement && e.key === 'Enter') {
-														e.preventDefault();
-
-														const commandOptionButton = [
-															...document.getElementsByClassName('selected-command-option-button')
-														]?.at(-1);
-
-														if (e.shiftKey) {
-															prompt = `${prompt}\n`;
-														} else if (commandOptionButton) {
-															commandOptionButton?.click();
-														} else {
-															document.getElementById('send-message-button')?.click();
+															const commandOptionButton = [
+																...document.getElementsByClassName('selected-command-option-button')
+															]?.at(-1);
+															commandOptionButton.scrollIntoView({ block: 'center' });
 														}
-													}
 
-													if (commandsContainerElement && e.key === 'Tab') {
-														e.preventDefault();
+														if (commandsContainerElement && e.key === 'ArrowDown') {
+															e.preventDefault();
+															commandsElement.selectDown();
 
-														const commandOptionButton = [
-															...document.getElementsByClassName('selected-command-option-button')
-														]?.at(-1);
+															const commandOptionButton = [
+																...document.getElementsByClassName('selected-command-option-button')
+															]?.at(-1);
+															commandOptionButton.scrollIntoView({ block: 'center' });
+														}
 
-														commandOptionButton?.click();
+														if (commandsContainerElement && e.key === 'Tab') {
+															e.preventDefault();
+
+															const commandOptionButton = [
+																...document.getElementsByClassName('selected-command-option-button')
+															]?.at(-1);
+
+															commandOptionButton?.click();
+														}
+
+														if (commandsContainerElement && e.key === 'Enter') {
+															e.preventDefault();
+
+															const commandOptionButton = [
+																...document.getElementsByClassName('selected-command-option-button')
+															]?.at(-1);
+
+															if (commandOptionButton) {
+																commandOptionButton?.click();
+															} else {
+																document.getElementById('send-message-button')?.click();
+															}
+														}
+													} else {
+														if (
+															!$mobile ||
+															!(
+																'ontouchstart' in window ||
+																navigator.maxTouchPoints > 0 ||
+																navigator.msMaxTouchPoints > 0
+															)
+														) {
+															// Prevent Enter key from creating a new line
+															// Uses keyCode '13' for Enter key for chinese/japanese keyboards
+															if (e.keyCode === 13 && !e.shiftKey) {
+																e.preventDefault();
+															}
+
+															// Submit the prompt when Enter key is pressed
+															if (prompt !== '' && e.keyCode === 13 && !e.shiftKey) {
+																dispatch('submit', prompt);
+															}
+														}
 													}
 
 													if (e.key === 'Escape') {
@@ -902,7 +894,6 @@
 											on:input={async (e) => {
 												e.target.style.height = '';
 												e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-												user = null;
 											}}
 											on:focus={async (e) => {
 												e.target.style.height = '';

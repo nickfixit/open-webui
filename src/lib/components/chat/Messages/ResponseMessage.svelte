@@ -64,7 +64,7 @@
 		};
 		done: boolean;
 		error?: boolean | { content: string };
-		citations?: string[];
+		sources?: string[];
 		code_executions?: {
 			uuid: string;
 			name: string;
@@ -340,19 +340,16 @@
 
 	let feedbackLoading = false;
 
-	const feedbackHandler = async (
-		rating: number | null = null,
-		annotation: object | null = null
-	) => {
+	const feedbackHandler = async (rating: number | null = null, details: object | null = null) => {
 		feedbackLoading = true;
-		console.log('Feedback', rating, annotation);
+		console.log('Feedback', rating, details);
 
 		const updatedMessage = {
 			...message,
 			annotation: {
 				...(message?.annotation ?? {}),
 				...(rating !== null ? { rating: rating } : {}),
-				...(annotation ? annotation : {})
+				...(details ? details : {})
 			}
 		};
 
@@ -429,7 +426,7 @@
 
 		await tick();
 
-		if (!annotation) {
+		if (!details) {
 			showRateComment = true;
 
 			if (!updatedMessage.annotation?.tags) {
@@ -624,9 +621,18 @@
 									<ContentRenderer
 										id={message.id}
 										content={message.content}
+										sources={message.sources}
 										floatingButtons={message?.done}
 										save={!readOnly}
 										{model}
+										onSourceClick={(e) => {
+											console.log(e);
+											const sourceButton = document.getElementById(`source-${e}`);
+
+											if (sourceButton) {
+												sourceButton.click();
+											}
+										}}
 										on:update={(e) => {
 											const { raw, oldContent, newContent } = e.detail;
 
@@ -656,8 +662,8 @@
 									<Error content={message?.error?.content ?? message.content} />
 								{/if}
 
-								{#if message.citations && (model?.info?.meta?.capabilities?.citations ?? true)}
-									<Citations citations={message.citations} />
+								{#if (message?.sources || message?.citations) && (model?.info?.meta?.capabilities?.citations ?? true)}
+									<Citations sources={message?.sources ?? message?.citations} />
 								{/if}
 
 								{#if message.code_executions}
@@ -1194,9 +1200,7 @@
 							bind:show={showRateComment}
 							on:save={async (e) => {
 								await feedbackHandler(null, {
-									tags: e.detail.tags,
-									comment: e.detail.comment,
-									reason: e.detail.reason
+									...e.detail
 								});
 							}}
 						/>
